@@ -24,6 +24,7 @@ class UserViewSet(viewsets.ViewSet):
         serializer = UserSerializer(user)
         return Response(serializer.data)
     
+    # 待删除
     def create(self, request):
         serializer = UserSerializer(data=request.data)
         if serializer.is_valid():
@@ -54,6 +55,7 @@ class AdvertiseViewSet(viewsets.ViewSet):
             pcimage = request.data['pcimage']
             mobimage = request.data['mobimage']
             signatureMsg = """useraddr:%s\npcimage:%s\nmobimage:%s"""%(useraddr, pcimage, mobimage)
+            print(signatureMsg)
             isValild = validate(msg=signatureMsg,signature=request.data['usersignature'], useraddr=useraddr)
             if isValild:
                 serializer.save()
@@ -72,7 +74,7 @@ class AdvertiseViewSet(viewsets.ViewSet):
         useraddr = request.data['useraddr']
         pcimage = user.pcimage
         mobimage = user.mobimage
-        audstatus = user.audstatus
+        audstatus = request.data['audstatus']
         auddate = datetime.datetime.now()
         # 添加 审核时间
         data = {'id': id, 'useraddr': useraddr, 'mobimage': mobimage, 'audstatus': audstatus, 'auddate': auddate}
