@@ -1,7 +1,7 @@
 from web3 import Web3
 from hexbytes import HexBytes
 from eth_account.messages import encode_defunct
-web3 = Web3(Web3.HTTPProvider('https://solana-devnet.g.alchemy.com/v2/RgCOfmKVv0DyHWlw_TtCAk9H0c_9er74'))
+web3 = Web3(Web3.HTTPProvider('https://mainnet.infura.io/v3/'))
 
 # 签名验证
 def validate(msg, signature, useraddr):
