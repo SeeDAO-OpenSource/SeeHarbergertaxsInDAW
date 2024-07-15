@@ -36,8 +36,10 @@ class Advertise(models.Model):
     auddate = models.DateTimeField(verbose_name='广告审核时间', blank=True, null=True)
     usersignature = models.CharField(verbose_name='用户签名', max_length=1024, blank=True, null=True)
     usersignaturemsg= models.CharField(verbose_name='用户签名内容', max_length=1024, blank=True, null=True)
+    applymsg = models.CharField(verbose_name="申请留言", max_length=1024, blank=True, null=True)
     audsignature = models.CharField(verbose_name='审核签名', max_length=1024, blank=True, null=True)
     audsignaturemsg = models.CharField(verbose_name='审核签名内容', max_length=1024, blank=True, null=True)
+    audmsg = models.CharField(verbose_name="审核留言", max_length=1024, blank=True, null=True)
 
     def __str__(self):
         return self.id
