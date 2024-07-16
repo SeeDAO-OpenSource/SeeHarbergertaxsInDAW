@@ -7,33 +7,75 @@ import datetime
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework.parsers import MultiPartParser, FormParser, FileUploadParser, JSONParser
 from rest_framework.pagination import PageNumberPagination
+from django.contrib.auth.models import User
+from django.contrib.auth import login
+from django.contrib.auth import logout
 
 import uuid
-from .models import User, Advertise, Image
-from .serializers import UserSerializer, AdvertiseSerializer, AuditSerializer, AdvertiseListSerializer, ImageSerializer
+from .models import Holder, Advertise, Image
+from .serializers import HolderSerializer, AdvertiseSerializer, AuditSerializer, AdvertiseListSerializer, ImageSerializer, UserSerializer
 
 class MyPageNumberPagination(PageNumberPagination):
     page_size = 2   # default page size
     page_size_query_param = 'size'  # ?page=xx&size=??
     max_page_size = 10 # max page size
 
+class LoginViewSet(viewsets.ViewSet):
+    def create(self, request):
+        useraddr = request.data['useraddr']
+        signature = request.data['signature']
+        message = request.data['message']
+        print(message)
+        isValild = validate(msg=message,signature=signature, useraddr=useraddr)
+        if isValild == False:
+            return Response('Signature Error', status=status.HTTP_400_BAD_REQUEST)
+        try:
+            user = User.objects.get(username=useraddr)
+        except User.DoesNotExist:
+            # 如果用户不存在，可以在此处创建新用户
+            user = User.objects.create_user(username=useraddr, password='')
+        login(request, user)
+
+        serializer = UserSerializer(user)
+        return Response(serializer.data)
+
+class LogoutViewSet(viewsets.ViewSet):
+    def create(self, request):
+        useraddr = request.data['useraddr']
+        signature = request.data['signature']
+        message = request.data['message']
+        print(message)
+        isValild = validate(msg=message,signature=signature, useraddr=useraddr)
+        if isValild == False:
+            return Response('Signature Error', status=status.HTTP_400_BAD_REQUEST)
+        try:
+            user = User.objects.get(username=useraddr)
+        except User.DoesNotExist:
+            # 如果用户不存在，可以在此处创建新用户
+            user = User.objects.create_user(username=useraddr, password='')
+        logout(request, user)
+
+        serializer = UserSerializer(user)
+        return Response(serializer.data)
+
+
 
 # 用户相关视图集
-class UserViewSet(viewsets.ViewSet):
+class HolderViewSet(viewsets.ViewSet):
     def list(self, request):
-        queryset = User.objects.all()
-        serializer = UserSerializer(queryset, many=True)
+        queryset = Holder.objects.all()
+        serializer = HolderSerializer(queryset, many=True)
         return Response(serializer.data)
     
     def retrieve(self, request, pk=None):
-        queryset = User.objects.all()
-        user = get_object_or_404(queryset, pk=pk)
-        serializer = UserSerializer(user)
+        queryset = Holder.objects.all()
+        Holder = get_object_or_404(queryset, pk=pk)
+        serializer = HolderSerializer(Holder)
         return Response(serializer.data)
     
     # 待删除
     def create(self, request):
-        serializer = UserSerializer(data=request.data)
+        serializer = HolderSerializer(data=request.data)
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -43,9 +85,9 @@ class UserViewSet(viewsets.ViewSet):
 class AdvertiseViewSet(viewsets.ViewSet):
     pagination_class = MyPageNumberPagination
 
-    # 获取数据
+    # 获取审核通过数据
     def list(self, request):
-        queryset = Advertise.objects.all()
+        queryset = Advertise.objects.filter(audstatus=0)
         serializer = AdvertiseListSerializer(queryset, many=True, context={'request': request})
         return Response(serializer.data)
     # 筛选数据
@@ -57,23 +99,23 @@ class AdvertiseViewSet(viewsets.ViewSet):
 
     # 广告数据新建
     def create(self, request):
-        serializer = AdvertiseSerializer(data=request.data, context={'request': request})
-        if serializer.is_valid():
-            # 提交数据
-            useraddr = request.data['useraddr']
-            pcimage = request.data['pcimage']
-            mobimage = request.data['mobimage']
-            applymsg = request.data['applymsg']
-            signatureMsg = """useraddr:%s\npcimage:%s\nmobimage:%s\napplymsg:%s"""%(useraddr, pcimage, mobimage, applymsg)
-            print(signatureMsg)
-            isValild = validate(msg=signatureMsg,signature=request.data['usersignature'], useraddr=useraddr)
-            if isValild:
+        # 提交数据
+        useraddr = str(request.user)
+        pcimage = request.data['pcimage']
+        mobimage = request.data['mobimage']
+        applymsg = request.data['applymsg']
+        signatureMsg = """useraddr:%s\npcimage:%s\nmobimage:%s\napplymsg:%s"""%(useraddr, pcimage, mobimage, applymsg)
+        print(signatureMsg)
+        isValild = validate(msg=signatureMsg,signature=request.data['usersignature'], useraddr=useraddr)
+        if isValild:
+            data = {'useraddr': useraddr, 'mobimage': mobimage, 'pcimage': pcimage, 'applymsg': applymsg}
+            serializer = AdvertiseSerializer(data=data, context={'request': request})
+            if serializer.is_valid():
                 serializer.save()
                 return Response(serializer.data, status=status.HTTP_201_CREATED)
-            # 钱包验证不通过则返回 400
-            return Response('Signature Error', status=status.HTTP_400_BAD_REQUEST)
-        
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        # 钱包验证不通过则返回 400
+        return Response('Signature Error', status=status.HTTP_400_BAD_REQUEST)
 
     # 广告审核
     def partial_update(self, request, pk=None):
@@ -81,7 +123,7 @@ class AdvertiseViewSet(viewsets.ViewSet):
         user = get_object_or_404(queryset, pk=pk)
         # 获取编号
         id = user.id
-        useraddr = request.data['useraddr']
+        useraddr = str(request.user)
         pcimage = user.pcimage
         mobimage = user.mobimage
         audstatus = request.data['audstatus']
@@ -103,8 +145,23 @@ class AdvertiseViewSet(viewsets.ViewSet):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+# 审核相关视图集，审核通过在 AdvertiseViewSet.partial_update
+class AuditViewSet(viewsets.ViewSet):
+    # 获取数据
+    def list(self, request):
+        # 审核地址则返回所有数据
+        if str(request.user) == "0xfF7ca7Fe8FdAF2a602191048E10A4b3B072aA1a0":
+            queryset = Advertise.objects.all()
+            serializer = AdvertiseListSerializer(queryset, many=True)
+            return Response(serializer.data)
+        # 用户地址则返回用户数据
+        queryset = Advertise.objects.filter(useraddr=request.user)
+        serializer = AuditSerializer(queryset, many=True, context={'request': request}, )
+        print(request.user)
+        return Response(serializer.data)
+
 # 图片上传
-class imageViewSet(viewsets.ViewSet):
+class ImageViewSet(viewsets.ViewSet):
     parser_classes = (MultiPartParser, FormParser, JSONParser)
     queryset = Image.objects.all()
     

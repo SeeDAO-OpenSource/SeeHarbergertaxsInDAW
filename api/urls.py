@@ -4,9 +4,11 @@ from rest_framework import routers
 from . import views
 
 router = routers.DefaultRouter()
-router.register(r'user', views.UserViewSet, basename='user')
+router.register(r'holder', views.HolderViewSet, basename='holder')
 router.register(r'advertise', views.AdvertiseViewSet, basename='advertise')
-router.register(r'image', views.imageViewSet, basename='image')
+router.register(r'audit', views.AuditViewSet, basename="audit")
+router.register(r'image', views.ImageViewSet, basename='image')
+router.register(r'login', views.LoginViewSet, basename='login')
 
 
 

@@ -2,8 +2,9 @@ from django.db import models
 from django.contrib.auth import get_user_model
 import datetime
 
+
 # 用户表
-class User(models.Model):
+class Holder(models.Model):
     id = models.AutoField(verbose_name='用户ID', db_index=True, primary_key=True)
     useraddr = models.CharField(verbose_name='用户钱包地址', max_length=1024, )
     sns = models.CharField(verbose_name='SNS名称', max_length=1024, blank=True, null=True)
@@ -18,7 +19,7 @@ class User(models.Model):
 
     class Meta:
         ordering = ['-advtimestart']
-        verbose_name = "User"
+        verbose_name = "Holder"
 # 广告表
 class Advertise(models.Model):
     audStatusChoices = (
