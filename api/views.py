@@ -4,22 +4,21 @@ from rest_framework import viewsets
 from django.shortcuts import get_object_or_404
 from .verify import validate
 import datetime
-from django.views.decorators.csrf import csrf_exempt
-from rest_framework.parsers import MultiPartParser, FormParser, FileUploadParser, JSONParser
 from rest_framework.pagination import PageNumberPagination
 from django.contrib.auth.models import User
 from django.contrib.auth import login
 from django.contrib.auth import logout
 
 import uuid
-from .models import Holder, Advertise, Image
+from .models import Holder, Advertise
 from .serializers import HolderSerializer, AdvertiseSerializer, AuditSerializer, AdvertiseListSerializer, ImageSerializer, UserSerializer
 
-class MyPageNumberPagination(PageNumberPagination):
-    page_size = 2   # default page size
+class StandardResultsSetPagination(PageNumberPagination):
+    page_size = 10   # default page size
     page_size_query_param = 'size'  # ?page=xx&size=??
-    max_page_size = 10 # max page size
+    max_page_size = 50 # max page size
 
+# 用户相关视图集
 class LoginViewSet(viewsets.ViewSet):
     def create(self, request):
         useraddr = request.data['useraddr']
@@ -32,7 +31,7 @@ class LoginViewSet(viewsets.ViewSet):
         try:
             user = User.objects.get(username=useraddr)
         except User.DoesNotExist:
-            # 如果用户不存在，可以在此处创建新用户
+            # 如果用户不存在，创建新用户
             user = User.objects.create_user(username=useraddr, password='')
         login(request, user)
 
@@ -41,7 +40,7 @@ class LoginViewSet(viewsets.ViewSet):
 
 class LogoutViewSet(viewsets.ViewSet):
     def create(self, request):
-        useraddr = request.data['useraddr']
+        useraddr = str(request.user)
         signature = request.data['signature']
         message = request.data['message']
         print(message)
@@ -58,13 +57,14 @@ class LogoutViewSet(viewsets.ViewSet):
         serializer = UserSerializer(user)
         return Response(serializer.data)
 
-
-
-# 用户相关视图集
+# 持有者相关视图集
 class HolderViewSet(viewsets.ViewSet):
+    pagination_class = StandardResultsSetPagination
     def list(self, request):
         queryset = Holder.objects.all()
-        serializer = HolderSerializer(queryset, many=True)
+        paginator = self.pagination_class()
+        page = paginator.paginate_queryset(queryset, request)
+        serializer = HolderSerializer(page, many=True)
         return Response(serializer.data)
     
     def retrieve(self, request, pk=None):
@@ -83,13 +83,16 @@ class HolderViewSet(viewsets.ViewSet):
 
 # 广告相关视图集
 class AdvertiseViewSet(viewsets.ViewSet):
-    pagination_class = MyPageNumberPagination
+    pagination_class = StandardResultsSetPagination
 
     # 获取审核通过数据
     def list(self, request):
         queryset = Advertise.objects.filter(audstatus=0)
-        serializer = AdvertiseListSerializer(queryset, many=True, context={'request': request})
+        paginator = self.pagination_class()
+        page = paginator.paginate_queryset(queryset, request)
+        serializer = AdvertiseListSerializer(page, many=True, context={'request': request})
         return Response(serializer.data)
+    
     # 筛选数据
     def retrieve(self, request, pk=None):
         queryset = Advertise.objects.all()
@@ -144,27 +147,27 @@ class AdvertiseViewSet(viewsets.ViewSet):
             return Response('Signature Error', status=status.HTTP_400_BAD_REQUEST)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-
 # 审核相关视图集，审核通过在 AdvertiseViewSet.partial_update
 class AuditViewSet(viewsets.ViewSet):
-    # 获取数据
+    pagination_class = StandardResultsSetPagination
     def list(self, request):
         # 审核地址则返回所有数据
         if str(request.user) == "0xfF7ca7Fe8FdAF2a602191048E10A4b3B072aA1a0":
             queryset = Advertise.objects.all()
-            serializer = AdvertiseListSerializer(queryset, many=True)
+            paginator = self.pagination_class()
+            page = paginator.paginate_queryset(queryset, request)
+            serializer = AdvertiseListSerializer(page, many=True)
             return Response(serializer.data)
         # 用户地址则返回用户数据
         queryset = Advertise.objects.filter(useraddr=request.user)
-        serializer = AuditSerializer(queryset, many=True, context={'request': request}, )
+        paginator = self.pagination_class()
+        page = paginator.paginate_queryset(queryset, request)
+        serializer = AuditSerializer(page, many=True, context={'request': request}, )
         print(request.user)
         return Response(serializer.data)
 
 # 图片上传
 class ImageViewSet(viewsets.ViewSet):
-    parser_classes = (MultiPartParser, FormParser, JSONParser)
-    queryset = Image.objects.all()
-    
     def create(self, request):
         serializer = ImageSerializer(data=request.data)
         if serializer.is_valid():
