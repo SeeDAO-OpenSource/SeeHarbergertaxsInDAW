@@ -29,7 +29,7 @@ class AdvertiseSerializer(serializers.HyperlinkedModelSerializer):
 class AuditSerializer(serializers.HyperlinkedModelSerializer): 
     class Meta:
         model = Advertise
-        fields = ['id','useraddr', 'pcimage', 'mobimage', 'audstatus', 'auddate', 'audmsg', 'applymsg']
+        fields = ['id','useraddr', 'pcimage', 'mobimage', "createdate", 'audstatus', 'auddate', 'audmsg', 'applymsg']
 
 # 广告查询
 class AdvertiseListSerializer(serializers.HyperlinkedModelSerializer): 
