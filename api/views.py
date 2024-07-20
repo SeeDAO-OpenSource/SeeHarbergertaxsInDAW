@@ -8,10 +8,16 @@ from rest_framework.pagination import PageNumberPagination
 from django.contrib.auth.models import User
 from django.contrib.auth import login
 from django.contrib.auth import logout
-
+from .audit import AuditClass 
 import uuid
+import base64
+import logging
 from .models import Holder, Advertise
 from .serializers import HolderSerializer, AdvertiseSerializer, AuditSerializer, AdvertiseListSerializer, ImageSerializer, UserSerializer
+
+AuditClass = AuditClass()
+LOG_FORMAT = "%(asctime)s - %(filename)s[%(lineno)d] - %(levelname)s - %(message)s"
+logging.basicConfig(level=logging.INFO, format=LOG_FORMAT)
 
 class StandardResultsSetPagination(PageNumberPagination):
     page_size = 10   # default page size
@@ -20,11 +26,33 @@ class StandardResultsSetPagination(PageNumberPagination):
 
 # 用户相关视图集
 class LoginViewSet(viewsets.ViewSet):
+    def list(self, request):
+        useraddr = str(request.user)
+        try:
+            user = User.objects.get(username=useraddr)
+        except:
+            return Response("User is not logged in", status=status.HTTP_401_UNAUTHORIZED)
+
+        serializer = UserSerializer(user)
+        response_data = serializer.data.copy()
+        # 是否为审核员
+        if AuditClass.verify_audit(useraddr=useraddr):
+            response_data['auditor'] = True
+        else:
+            response_data['auditor'] = False
+        logging.info(useraddr)
+        return Response(response_data)
+
     def create(self, request):
         useraddr = request.data['useraddr']
         signature = request.data['signature']
-        message = request.data['message']
-        print(message)
+        message_base64 = request.data['message']
+        # message base64 decode
+        try:
+            message = base64.b64decode(message_base64).decode()
+        except:
+            return Response("Message Error", status=status.HTTP_400_BAD_REQUEST)
+        logging.info(message)
         isValild = validate(msg=message,signature=signature, useraddr=useraddr)
         if isValild == False:
             return Response('Signature Error', status=status.HTTP_400_BAD_REQUEST)
@@ -36,14 +64,21 @@ class LoginViewSet(viewsets.ViewSet):
         login(request, user)
 
         serializer = UserSerializer(user)
-        return Response(serializer.data)
+        response_data = serializer.data.copy()
+        # 是否为审核员
+        if AuditClass.verify_audit(useraddr=useraddr):
+            response_data['auditor'] = True
+        else:
+            response_data['auditor'] = False
+        logging.info(useraddr)
+        return Response(response_data)
 
 class LogoutViewSet(viewsets.ViewSet):
     def create(self, request):
         useraddr = str(request.user)
         signature = request.data['signature']
         message = request.data['message']
-        print(message)
+        logging.info(message)
         isValild = validate(msg=message,signature=signature, useraddr=useraddr)
         if isValild == False:
             return Response('Signature Error', status=status.HTTP_400_BAD_REQUEST)
@@ -104,11 +139,14 @@ class AdvertiseViewSet(viewsets.ViewSet):
     def create(self, request):
         # 提交数据
         useraddr = str(request.user)
+        # 持有者判断
+        pass
+
         pcimage = request.data['pcimage']
         mobimage = request.data['mobimage']
         applymsg = request.data['applymsg']
         signatureMsg = """useraddr:%s\npcimage:%s\nmobimage:%s\napplymsg:%s"""%(useraddr, pcimage, mobimage, applymsg)
-        print(signatureMsg)
+        logging.info(signatureMsg)
         isValild = validate(msg=signatureMsg,signature=request.data['usersignature'], useraddr=useraddr)
         if isValild:
             data = {'useraddr': useraddr, 'mobimage': mobimage, 'pcimage': pcimage, 'applymsg': applymsg}
@@ -127,6 +165,10 @@ class AdvertiseViewSet(viewsets.ViewSet):
         # 获取编号
         id = user.id
         useraddr = str(request.user)
+        # 审核员判断
+        if AuditClass.verify_audit(useraddr) is False:
+            return Response("Non-auditor", status=status.HTTP_401_UNAUTHORIZED)
+
         pcimage = user.pcimage
         mobimage = user.mobimage
         audstatus = request.data['audstatus']
@@ -137,8 +179,7 @@ class AdvertiseViewSet(viewsets.ViewSet):
         serializer = AuditSerializer(user, data=data, partial=True)
         if serializer.is_valid():
             signatureMsg = """id:%s\nuseraddr:%s\npcimage:%s\nmobimage:%s\naudstatus:%s\naudmsg:%s"""%(id, useraddr, pcimage, mobimage, audstatus, audmsg)
-            print(signatureMsg)
-            useraddr = "0xfF7ca7Fe8FdAF2a602191048E10A4b3B072aA1a0" # 审核地址
+            logging.info(signatureMsg)
             isValild = validate(msg=signatureMsg,signature=request.data['audsignature'], useraddr=useraddr)
             if isValild:
                 serializer.save()
@@ -151,19 +192,20 @@ class AdvertiseViewSet(viewsets.ViewSet):
 class AuditViewSet(viewsets.ViewSet):
     pagination_class = StandardResultsSetPagination
     def list(self, request):
+        useraddr = str(request.user)
         # 审核地址则返回所有数据
-        if str(request.user) == "0xfF7ca7Fe8FdAF2a602191048E10A4b3B072aA1a0":
+        if AuditClass.verify_audit(useraddr) is True:
             queryset = Advertise.objects.all()
             paginator = self.pagination_class()
             page = paginator.paginate_queryset(queryset, request)
-            serializer = AdvertiseListSerializer(page, many=True)
+            serializer = AuditSerializer(page, many=True)
             return Response(serializer.data)
         # 用户地址则返回用户数据
-        queryset = Advertise.objects.filter(useraddr=request.user)
+        queryset = Advertise.objects.filter(useraddr=useraddr)
         paginator = self.pagination_class()
         page = paginator.paginate_queryset(queryset, request)
         serializer = AuditSerializer(page, many=True, context={'request': request}, )
-        print(request.user)
+        logging.info(useraddr)
         return Response(serializer.data)
 
 # 图片上传
