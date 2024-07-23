@@ -23,6 +23,15 @@ class StandardResultsSetPagination(PageNumberPagination):
     page_size = 10   # default page size
     page_size_query_param = 'size'  # ?page=xx&size=??
     max_page_size = 50 # max page size
+    def get_paginated_response(self, data):
+        return Response({
+            'links': {
+                'next': self.get_next_link(),
+                'previous': self.get_previous_link()
+            },
+            'count': self.page.paginator.count,
+            'results': data
+        })
 
 # 用户相关视图集
 class LoginViewSet(viewsets.ViewSet):
@@ -100,7 +109,7 @@ class HolderViewSet(viewsets.ViewSet):
         paginator = self.pagination_class()
         page = paginator.paginate_queryset(queryset, request)
         serializer = HolderSerializer(page, many=True)
-        return Response(serializer.data)
+        return paginator.get_paginated_response(serializer.data)
     
     def retrieve(self, request, pk=None):
         queryset = Holder.objects.all()
@@ -126,7 +135,7 @@ class AdvertiseViewSet(viewsets.ViewSet):
         paginator = self.pagination_class()
         page = paginator.paginate_queryset(queryset, request)
         serializer = AdvertiseListSerializer(page, many=True, context={'request': request})
-        return Response(serializer.data)
+        return paginator.get_paginated_response(serializer.data)
     
     # 筛选数据
     def retrieve(self, request, pk=None):
@@ -199,14 +208,14 @@ class AuditViewSet(viewsets.ViewSet):
             paginator = self.pagination_class()
             page = paginator.paginate_queryset(queryset, request)
             serializer = AuditSerializer(page, many=True)
-            return Response(serializer.data)
+            return paginator.get_paginated_response(serializer.data)
         # 用户地址则返回用户数据
         queryset = Advertise.objects.filter(useraddr=useraddr)
         paginator = self.pagination_class()
         page = paginator.paginate_queryset(queryset, request)
         serializer = AuditSerializer(page, many=True, context={'request': request}, )
         logging.info(useraddr)
-        return Response(serializer.data)
+        return paginator.get_paginated_response(serializer.data)
 
 # 图片上传
 class ImageViewSet(viewsets.ViewSet):
