@@ -3,7 +3,7 @@ from django.contrib.auth import get_user_model
 import datetime
 
 
-# 用户表
+# 持有者表
 class Holder(models.Model):
     id = models.AutoField(verbose_name='用户ID', db_index=True, primary_key=True)
     useraddr = models.CharField(verbose_name='用户钱包地址', max_length=1024, )
