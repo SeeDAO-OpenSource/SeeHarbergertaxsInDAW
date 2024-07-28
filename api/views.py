@@ -131,7 +131,8 @@ class AdvertiseViewSet(viewsets.ViewSet):
 
     # 获取审核通过数据
     def list(self, request):
-        queryset = Advertise.objects.filter(audstatus=0)
+        audstatus = int(request.query_params.get('audstatus', 0))
+        queryset = Advertise.objects.filter(audstatus=audstatus)
         paginator = self.pagination_class()
         page = paginator.paginate_queryset(queryset, request)
         serializer = AdvertiseListSerializer(page, many=True, context={'request': request})
