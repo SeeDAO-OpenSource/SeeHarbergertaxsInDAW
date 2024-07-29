@@ -175,7 +175,7 @@ class AdvertiseViewSet(viewsets.ViewSet):
         id = user.id
         useraddr = user.useraddr
         # 审核员判断
-        if AuditClass.verify_audit(useraddr) is False:
+        if AuditClass.verify_audit(str(request.user)) is False:
             return Response("Non-auditor", status=status.HTTP_401_UNAUTHORIZED)
 
         pcimage = user.pcimage
