@@ -173,9 +173,9 @@ class AdvertiseViewSet(viewsets.ViewSet):
         user = get_object_or_404(queryset, pk=pk)
         # 获取编号
         id = user.id
-        useraddr = user.useraddr
+        useraddr = str(request.user)
         # 审核员判断
-        if AuditClass.verify_audit(str(request.user)) is False:
+        if AuditClass.verify_audit(useraddr) is False:
             return Response("Non-auditor", status=status.HTTP_401_UNAUTHORIZED)
 
         pcimage = user.pcimage
@@ -184,7 +184,7 @@ class AdvertiseViewSet(viewsets.ViewSet):
         # 添加 审核时间
         auddate = datetime.datetime.now()
         audmsg = request.data['audmsg']
-        data = {'id': id, 'useraddr': useraddr, 'mobimage': mobimage, 'audstatus': audstatus, 'auddate': auddate, 'audmsg': audmsg}
+        data = {'id': id, 'useraddr': user.useraddr, 'mobimage': mobimage, 'audstatus': audstatus, 'auddate': auddate, 'audmsg': audmsg}
         serializer = AuditSerializer(user, data=data, partial=True)
         if serializer.is_valid():
             signatureMsg = """id:%s\nuseraddr:%s\npcimage:%s\nmobimage:%s\naudstatus:%s\naudmsg:%s"""%(id, useraddr, pcimage, mobimage, audstatus, audmsg)
