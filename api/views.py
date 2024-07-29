@@ -131,8 +131,7 @@ class AdvertiseViewSet(viewsets.ViewSet):
 
     # 获取审核通过数据
     def list(self, request):
-        audstatus = int(request.query_params.get('audstatus', 0))
-        queryset = Advertise.objects.filter(audstatus=audstatus)
+        queryset = Advertise.objects.filter(audstatus=0)
         paginator = self.pagination_class()
         page = paginator.paginate_queryset(queryset, request)
         serializer = AdvertiseListSerializer(page, many=True, context={'request': request})
@@ -203,15 +202,24 @@ class AuditViewSet(viewsets.ViewSet):
     pagination_class = StandardResultsSetPagination
     def list(self, request):
         useraddr = str(request.user)
-        # 审核地址则返回所有数据
+        # 默认返回任意审核状态
+        audstatus = int(request.query_params.get('audstatus', 1000))
+
+        # 审核地址则返回所有用户数据
         if AuditClass.verify_audit(useraddr) is True:
             queryset = Advertise.objects.all()
+            if audstatus != 1000:
+                queryset = queryset.filter(audstatus=audstatus)
+
             paginator = self.pagination_class()
             page = paginator.paginate_queryset(queryset, request)
             serializer = AuditSerializer(page, many=True)
             return paginator.get_paginated_response(serializer.data)
         # 用户地址则返回用户数据
         queryset = Advertise.objects.filter(useraddr=useraddr)
+        if audstatus != 1000:
+            queryset = queryset.filter(audstatus=audstatus)
+
         paginator = self.pagination_class()
         page = paginator.paginate_queryset(queryset, request)
         serializer = AuditSerializer(page, many=True, context={'request': request}, )
