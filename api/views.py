@@ -173,7 +173,7 @@ class AdvertiseViewSet(viewsets.ViewSet):
         user = get_object_or_404(queryset, pk=pk)
         # 获取编号
         id = user.id
-        useraddr = str(request.user)
+        useraddr = user.useraddr
         # 审核员判断
         if AuditClass.verify_audit(useraddr) is False:
             return Response("Non-auditor", status=status.HTTP_401_UNAUTHORIZED)
