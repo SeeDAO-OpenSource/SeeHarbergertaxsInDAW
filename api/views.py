@@ -225,7 +225,23 @@ class AuditViewSet(viewsets.ViewSet):
         serializer = AuditSerializer(page, many=True, context={'request': request}, )
         logging.info(useraddr)
         return paginator.get_paginated_response(serializer.data)
+    
+    # 筛选数据
+    def retrieve(self, request, pk=None):
+        useraddr = str(request.user)
+        # 审核地址可查看所有数据
+        if AuditClass.verify_audit(useraddr) is True:
+            queryset = Advertise.objects.all()
+            user = get_object_or_404(queryset, pk=pk)
+            serializer = AuditSerializer(user, context={'request': request})
+            return Response(serializer.data)
 
+        # 普通用户则返回自己所拥有的数据
+        queryset = Advertise.objects.filter(useraddr=useraddr)
+        user = get_object_or_404(queryset, pk=pk)
+        serializer = AuditSerializer(user, context={'request': request})
+        return Response(serializer.data)
+    
 # 图片上传
 class ImageViewSet(viewsets.ViewSet):
     def create(self, request):
